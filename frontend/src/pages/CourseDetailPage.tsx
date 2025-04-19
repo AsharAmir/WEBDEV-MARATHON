@@ -62,7 +62,12 @@ const CourseDetailPage: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [isEnrolled, setIsEnrolled] = useState(false);
   const [transcripts, setTranscripts] = useState<{ [key: string]: string }>({});
-  const speechRecognitionRefs = useRef<{ [key: string]: any }>({});
+  const speechRecognitionRefs = useRef<{
+    [key: string]: {
+      recognition: any;
+      isActive: boolean;
+    };
+  }>({});
 
   // Effect for loading user data - runs once on mount
   useEffect(() => {
@@ -163,12 +168,12 @@ const CourseDetailPage: React.FC = () => {
       }
     };
 
-    let isRecognitionActive = false;
     videoElement.onplay = () => {
-      if (!isRecognitionActive) {
+      const recognitionState = speechRecognitionRefs.current[lessonId];
+      if (recognitionState && !recognitionState.isActive) {
         try {
           recognition.start();
-          isRecognitionActive = true;
+          recognitionState.isActive = true;
         } catch (error) {
           console.error("Failed to start speech recognition:", error);
         }
@@ -176,10 +181,11 @@ const CourseDetailPage: React.FC = () => {
     };
 
     videoElement.onpause = () => {
-      if (isRecognitionActive) {
+      const recognitionState = speechRecognitionRefs.current[lessonId];
+      if (recognitionState && recognitionState.isActive) {
         try {
           recognition.stop();
-          isRecognitionActive = false;
+          recognitionState.isActive = false;
         } catch (error) {
           console.error("Failed to stop speech recognition:", error);
         }
@@ -187,22 +193,34 @@ const CourseDetailPage: React.FC = () => {
     };
 
     videoElement.onended = () => {
-      if (isRecognitionActive) {
+      const recognitionState = speechRecognitionRefs.current[lessonId];
+      if (recognitionState && recognitionState.isActive) {
         try {
           recognition.stop();
-          isRecognitionActive = false;
+          recognitionState.isActive = false;
         } catch (error) {
           console.error("Failed to stop speech recognition:", error);
         }
       }
     };
 
-    speechRecognitionRefs.current[lessonId] = recognition;
+    // Store both the recognition object and its state
+    speechRecognitionRefs.current[lessonId] = {
+      recognition,
+      isActive: false,
+    };
   };
 
   const stopTranscription = (lessonId: string) => {
-    if (speechRecognitionRefs.current[lessonId]) {
-      speechRecognitionRefs.current[lessonId].stop();
+    const recognitionState = speechRecognitionRefs.current[lessonId];
+    if (recognitionState) {
+      if (recognitionState.isActive) {
+        try {
+          recognitionState.recognition.stop();
+        } catch (error) {
+          console.error("Failed to stop speech recognition:", error);
+        }
+      }
       delete speechRecognitionRefs.current[lessonId];
     }
   };

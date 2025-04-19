@@ -1,7 +1,7 @@
 import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import Navbar from "./components/layout/Navbar";
-import Footer from "./components/Footer";
+import Navbar from "./components/landing/SimpleNavbar";
+import Footer from "./components/layout/Footer";
 import LandingPage from "./pages/LandingPage.tsx";
 import CoursesPage from "./pages/CoursesPage.tsx";
 import CourseDetailPage from "./pages/CourseDetailPage.tsx";

@@ -1,18 +1,29 @@
-import React from "react";
-import HeroSection from "../components/landing/HeroSection";
-import FeaturesSection from "../components/landing/FeaturesSection";
-import PopularCoursesSection from "../components/landing/PopularCoursesSection";
-import TestimonialsSection from "../components/landing/TestimonialsSection";
-import CallToActionSection from "../components/landing/CallToActionSection";
+"use client";
 
-const LandingPage: React.FC = () => {
+import SimpleHero from "@/components/landing/SimpleHero";
+import SimpleFeatures from "@/components/landing/SimpleFeatures";
+import SimpleStats from "@/components/landing/SimpleStats";
+import SimpleNavbar from "@/components/landing/SimpleNavbar";
+
+const LandingPage = () => {
   return (
-    <div>
-      <HeroSection />
-      <FeaturesSection />
-      <PopularCoursesSection />
-      <TestimonialsSection />
-      <CallToActionSection />
+    <div className="bg-gray-50">
+      <SimpleNavbar />
+
+      {/* Hero Section */}
+      <section className="relative">
+        <SimpleHero />
+      </section>
+
+      {/* Features Section */}
+      <section id="features">
+        <SimpleFeatures />
+      </section>
+
+      {/* Stats Section */}
+      <section id="stats">
+        <SimpleStats />
+      </section>
     </div>
   );
 };
