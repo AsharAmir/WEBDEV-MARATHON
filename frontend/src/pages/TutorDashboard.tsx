@@ -32,12 +32,19 @@ const TutorDashboard: React.FC = () => {
         console.log("User _id:", user._id);
         console.log("User id:", user.id);
         console.log("User keys:", Object.keys(user));
+
         if (user.role !== "tutor") {
           throw new Error("Access denied. Tutor role required.");
         }
 
+        // Use either _id or id field, whichever is available
+        const tutorId = user._id || user.id;
+        if (!tutorId) {
+          throw new Error("Invalid tutor ID. Please log out and log in again.");
+        }
+
         const tutorCourses = (await coursesAPI.getTutorCourses(
-          user._id
+          tutorId
         )) as TutorCourse[];
         setCourses(tutorCourses);
       } catch (err) {

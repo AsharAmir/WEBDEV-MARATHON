@@ -4,7 +4,7 @@ const {
   getCourseMessages, 
   sendMessage, 
   deleteMessage 
-} = require('../controllers/chatController');
+} = require('../controller/chatController');
 
 // Get messages for a course
 router.get('/course/:courseId', getCourseMessages);

@@ -1,25 +1,17 @@
 import React, { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
-import { coursesAPI, enrollmentsAPI } from "../services/api";
-import type { Course } from "../types/course";
+import { coursesAPI } from "../services/api";
+import type { Course, Lesson } from "../types/course";
 import { Video, Play, Lock } from "lucide-react";
 
-interface Lesson {
-  _id: string;
-  title: string;
-  description: string;
-  videoUrl: string;
-  duration: number;
-  order: number;
-}
-
-interface CourseWithLessons extends Course {
-  lessons: Lesson[];
+interface CourseProgress {
+  completedLessons: string[];
+  progress: number;
 }
 
 const LearnPage: React.FC = () => {
   const { courseId } = useParams<{ courseId: string }>();
-  const [course, setCourse] = useState<CourseWithLessons | null>(null);
+  const [course, setCourse] = useState<Course | null>(null);
   const [currentLesson, setCurrentLesson] = useState<Lesson | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -32,17 +24,20 @@ const LearnPage: React.FC = () => {
         }
 
         // Fetch course details with lessons
-        const courseData = await coursesAPI.getById(courseId);
+        const courseData = (await coursesAPI.getById(courseId)) as Course;
 
-        // Fetch enrollment progress
-        const progress = await enrollmentsAPI.getProgress(courseId);
+        // Get progress from localStorage
+        const progressStr = localStorage.getItem(`course_progress_${courseId}`);
+        const progress: CourseProgress = progressStr
+          ? JSON.parse(progressStr)
+          : { completedLessons: [], progress: 0 };
 
-        setCourse(courseData as CourseWithLessons);
+        setCourse(courseData);
 
         // Set current lesson to the first uncompleted lesson or first lesson
-        if (courseData.lessons?.length > 0) {
+        if (courseData.lessons && courseData.lessons.length > 0) {
           const firstUncompletedLesson = courseData.lessons.find(
-            (lesson) => !progress.completedLessons.includes(lesson._id)
+            (lesson) => !progress.completedLessons.includes(lesson.title)
           );
           setCurrentLesson(firstUncompletedLesson || courseData.lessons[0]);
         }
@@ -60,10 +55,22 @@ const LearnPage: React.FC = () => {
     if (!courseId || !currentLesson) return;
 
     try {
-      await enrollmentsAPI.completeLesson(courseId, currentLesson._id);
-      // Refresh course data to update progress
-      const updatedCourse = await coursesAPI.getById(courseId);
-      setCourse(updatedCourse as CourseWithLessons);
+      // Update progress in localStorage
+      const progressStr = localStorage.getItem(`course_progress_${courseId}`);
+      const progress: CourseProgress = progressStr
+        ? JSON.parse(progressStr)
+        : { completedLessons: [], progress: 0 };
+
+      if (!progress.completedLessons.includes(currentLesson.title)) {
+        progress.completedLessons.push(currentLesson.title);
+        progress.progress =
+          (progress.completedLessons.length / (course?.lessons?.length || 1)) *
+          100;
+        localStorage.setItem(
+          `course_progress_${courseId}`,
+          JSON.stringify(progress)
+        );
+      }
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Failed to mark lesson as complete"
@@ -119,10 +126,10 @@ const LearnPage: React.FC = () => {
           <div className="space-y-2">
             {course.lessons?.map((lesson) => (
               <button
-                key={lesson._id}
+                key={lesson.title}
                 onClick={() => setCurrentLesson(lesson)}
                 className={`w-full p-4 rounded-lg flex items-center justify-between ${
-                  currentLesson?._id === lesson._id
+                  currentLesson?.title === lesson.title
                     ? "bg-blue-50 border border-blue-200"
                     : "bg-white border border-gray-200 hover:bg-gray-50"
                 }`}
@@ -131,12 +138,10 @@ const LearnPage: React.FC = () => {
                   <Video className="w-5 h-5 text-gray-500" />
                   <div className="text-left">
                     <p className="font-medium">{lesson.title}</p>
-                    <p className="text-sm text-gray-500">
-                      {Math.floor(lesson.duration / 60)} min
-                    </p>
+                    <p className="text-sm text-gray-500">{lesson.duration}</p>
                   </div>
                 </div>
-                {lesson._id === currentLesson?._id ? (
+                {lesson.title === currentLesson?.title ? (
                   <Play className="w-5 h-5 text-blue-500" />
                 ) : (
                   <Lock className="w-5 h-5 text-gray-400" />

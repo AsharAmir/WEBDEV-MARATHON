@@ -9,6 +9,8 @@ import LoginPage from "./pages/LoginPage.tsx";
 import SignupPage from "./pages/SignupPage.tsx";
 import DashboardPage from "./pages/DashboardPage.tsx";
 import CreateCoursePage from "./pages/CreateCoursePage.tsx";
+import LearnPage from "./pages/LearnPage";
+import CourseManagement from "./pages/CourseManagement";
 
 function App() {
   return (
@@ -20,7 +22,9 @@ function App() {
             <Route path="/" element={<LandingPage />} />
             <Route path="/courses" element={<CoursesPage />} />
             <Route path="/courses/:id" element={<CourseDetailPage />} />
+            <Route path="/courses/:courseId/learn" element={<LearnPage />} />
             <Route path="/create-course" element={<CreateCoursePage />} />
+            <Route path="/manage-courses" element={<CourseManagement />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/signup" element={<SignupPage />} />
             <Route path="/dashboard" element={<DashboardPage />} />
