@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useParams, Link } from "react-router-dom";
 import EnrollButton from "../components/courses/EnrollButton";
+import CourseChat from "../components/courses/CourseChat";
 import { coursesAPI, enrollmentsAPI } from "../services/api";
 import type { Course, Lesson } from "../types/course";
 import { Plus } from "lucide-react";
@@ -137,7 +138,6 @@ const CourseDetailPage: React.FC = () => {
     lessonId: string,
     videoElement: HTMLVideoElement
   ) => {
-    // If recognition already exists for this lesson, don't create a new one
     if (speechRecognitionRefs.current[lessonId]) {
       return;
     }
@@ -162,7 +162,6 @@ const CourseDetailPage: React.FC = () => {
 
     recognition.onerror = (event: any) => {
       console.error("Speech recognition error:", event.error);
-      // Clean up on error
       if (speechRecognitionRefs.current[lessonId]) {
         delete speechRecognitionRefs.current[lessonId];
       }
@@ -204,7 +203,6 @@ const CourseDetailPage: React.FC = () => {
       }
     };
 
-    // Store both the recognition object and its state
     speechRecognitionRefs.current[lessonId] = {
       recognition,
       isActive: false,
@@ -258,162 +256,225 @@ const CourseDetailPage: React.FC = () => {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="max-w-4xl mx-auto">
-        {/* Course Header */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-          <div className="flex justify-between items-start">
-            <div>
-              <h1 className="text-3xl font-bold mb-2">{course.title}</h1>
-              <p className="text-gray-600 mb-4">{course.description}</p>
-              <div className="flex items-center space-x-4 text-sm text-gray-500">
-                <span>Level: {course.level}</span>
-                <span>•</span>
-                <span>{course.totalStudents} students</span>
-                <span>•</span>
-                <span>Rating: {course.rating}/5</span>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        {/* Course Info */}
+        <div className="md:col-span-2">
+          <h1 className="text-3xl font-bold text-gray-900 mb-4">
+            {course.title}
+          </h1>
+          <div className="aspect-video mb-6">
+            <img
+              src={course.thumbnail}
+              alt={course.title}
+              className="w-full h-full object-cover rounded-lg"
+            />
+          </div>
+          <div className="prose max-w-none">
+            <h2 className="text-xl font-semibold mb-2">About This Course</h2>
+            <p className="text-gray-600">{course.description}</p>
+          </div>
+
+          {/* Course Content */}
+          {(isEnrolled || isTutor) &&
+            course.lessons &&
+            course.lessons.length > 0 && (
+              <div className="mt-8">
+                <h2 className="text-2xl font-bold mb-4">Course Content</h2>
+                <div className="space-y-4">
+                  {course.lessons.map((lesson, index) => (
+                    <div
+                      key={lesson._id}
+                      className="border rounded-lg overflow-hidden bg-white shadow-sm"
+                    >
+                      <div className="p-4">
+                        <div className="flex justify-between items-start">
+                          <div className="flex items-center">
+                            <span className="text-gray-500 mr-3">
+                              Lesson {index + 1}
+                            </span>
+                            <div>
+                              <h3 className="font-medium text-lg">
+                                {lesson.title}
+                              </h3>
+                              <p className="text-gray-600 mt-1">
+                                {lesson.description}
+                              </p>
+                            </div>
+                          </div>
+                          <span className="text-sm text-gray-500 ml-4 whitespace-nowrap">
+                            {lesson.duration} min
+                          </span>
+                        </div>
+                        {lesson.videoUrl && (
+                          <div className="mt-4">
+                            <video
+                              className="w-full rounded"
+                              src={lesson.videoUrl}
+                              controls
+                              preload="metadata"
+                              ref={(videoElement) => {
+                                if (videoElement) {
+                                  startTranscription(lesson._id, videoElement);
+                                }
+                              }}
+                            />
+                            {/* Real-time Transcription */}
+                            <div className="mt-4 border-t pt-4">
+                              <h4 className="text-md font-semibold mb-2">
+                                Live Transcription
+                              </h4>
+                              <div className="bg-gray-50 rounded-lg p-4 text-sm text-gray-700 max-h-60 overflow-y-auto">
+                                {transcripts[lesson._id] ||
+                                  "Play the video to see real-time transcription"}
+                              </div>
+                            </div>
+                            {/* Summary Section */}
+                            {transcripts[lesson._id] && (
+                              <div className="mt-4 border-t pt-4">
+                                <h4 className="text-md font-semibold mb-2">
+                                  Key Points
+                                </h4>
+                                <div className="bg-gray-50 rounded-lg p-4 text-sm text-gray-700">
+                                  {transcripts[lesson._id]
+                                    .split(".")
+                                    .slice(0, 3)
+                                    .join(". ")}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        {lesson.status === "processing" && (
+                          <div className="mt-2 text-yellow-600 text-sm">
+                            Video is being processed...
+                          </div>
+                        )}
+                        {lesson.status === "failed" && (
+                          <div className="mt-2 text-red-600 text-sm">
+                            Video processing failed
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+          {/* Course Chat - Only show for enrolled students or tutors */}
+          {user && (isEnrolled || user.role === "tutor") && (
+            <div className="mt-8">
+              <h2 className="text-xl font-semibold mb-4">Course Discussion</h2>
+              <CourseChat courseId={course._id} />
+            </div>
+          )}
+        </div>
+
+        {/* Enrollment Card */}
+        <div className="md:col-span-1">
+          <div className="bg-white rounded-lg shadow-md p-6 sticky top-24">
+            <div className="mb-4">
+              <span className="text-3xl font-bold text-gray-900">
+                ${course.price}
+              </span>
+            </div>
+            <div className="space-y-4">
+              <div className="flex items-center">
+                <span className="text-gray-600">Level:</span>
+                <span className="ml-2 font-medium capitalize">
+                  {course.level}
+                </span>
+              </div>
+              <div className="flex items-center">
+                <span className="text-gray-600">Duration:</span>
+                <span className="ml-2 font-medium">{course.duration}</span>
+              </div>
+              <div className="flex items-center">
+                <span className="text-gray-600">Students:</span>
+                <span className="ml-2 font-medium">{course.totalStudents}</span>
               </div>
             </div>
-            <div className="text-right">
-              <div className="text-3xl font-bold text-blue-600 mb-2">
-                ${course.price}
-              </div>
-              {isTutor ? (
+
+            {/* Show different content based on user role and enrollment status */}
+            {isTutor ? (
+              <div className="mt-6">
                 <Link
                   to={`/courses/${course._id}/add-lesson`}
-                  className="inline-flex items-center px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
+                  className="w-full inline-flex items-center justify-center px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
                 >
                   <Plus className="w-5 h-5 mr-2" />
                   Add Lesson
                 </Link>
-              ) : (
-                <EnrollButton
-                  courseId={course._id}
-                  price={course.price}
-                  isEnrolled={isEnrolled}
-                  onEnrollmentComplete={handleEnrollmentComplete}
-                />
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Course Content */}
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-2xl font-bold mb-4">Course Content</h2>
-          {course.lessons && course.lessons.length > 0 ? (
-            <div className="space-y-4">
-              {course.lessons.map((lesson, index) => (
-                <div
-                  key={lesson._id}
-                  className="border rounded-lg overflow-hidden bg-white shadow-sm"
-                >
-                  <div className="p-4">
-                    <div className="flex justify-between items-start">
-                      <div className="flex items-center">
-                        <span className="text-gray-500 mr-3">
-                          Lesson {index + 1}
-                        </span>
-                        <div>
-                          <h3 className="font-medium text-lg">
-                            {lesson.title}
-                          </h3>
-                          <p className="text-gray-600 mt-1">
-                            {lesson.description}
-                          </p>
-                        </div>
-                      </div>
-                      <span className="text-sm text-gray-500 ml-4 whitespace-nowrap">
-                        {lesson.duration} min
-                      </span>
-                    </div>
-                    {lesson.videoUrl && (
-                      <div className="mt-4">
-                        <video
-                          className="w-full rounded"
-                          src={lesson.videoUrl}
-                          controls
-                          preload="metadata"
-                          ref={(videoElement) => {
-                            if (videoElement) {
-                              startTranscription(lesson._id, videoElement);
-                            }
-                          }}
-                        />
-                        {/* Real-time Transcription */}
-                        <div className="mt-4 border-t pt-4">
-                          <h4 className="text-md font-semibold mb-2">
-                            Live Transcription
-                          </h4>
-                          <div className="bg-gray-50 rounded-lg p-4 text-sm text-gray-700 max-h-60 overflow-y-auto">
-                            {transcripts[lesson._id] ||
-                              "Play the video to see real-time transcription"}
-                          </div>
-                        </div>
-                        {/* Summary Section - We'll generate this from the transcription */}
-                        {transcripts[lesson._id] && (
-                          <div className="mt-4 border-t pt-4">
-                            <h4 className="text-md font-semibold mb-2">
-                              Key Points
-                            </h4>
-                            <div className="bg-gray-50 rounded-lg p-4 text-sm text-gray-700">
-                              {/* You can add AI-generated summary here if needed */}
-                              {/* For now, we'll show the first few sentences */}
-                              {transcripts[lesson._id]
-                                .split(".")
-                                .slice(0, 3)
-                                .join(". ")}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                    {lesson.status === "processing" && (
-                      <div className="mt-2 text-yellow-600 text-sm">
-                        Video is being processed...
-                      </div>
-                    )}
-                    {lesson.status === "failed" && (
-                      <div className="mt-2 text-red-600 text-sm">
-                        Video processing failed
-                      </div>
-                    )}
+              </div>
+            ) : user?.role === "student" ? (
+              <div className="mt-6">
+                {isEnrolled ? (
+                  <div className="text-center">
+                    <button
+                      className="w-full bg-green-600 text-white px-4 py-2 rounded-lg"
+                      disabled
+                    >
+                      Enrolled
+                    </button>
+                    <Link
+                      to={`/courses/${course._id}/learn`}
+                      className="block mt-4 text-blue-600 hover:underline"
+                    >
+                      Start Learning
+                    </Link>
                   </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-gray-500">No lessons available yet.</p>
-          )}
+                ) : (
+                  <EnrollButton
+                    courseId={course._id}
+                    price={course.price}
+                    onEnrollmentComplete={handleEnrollmentComplete}
+                  />
+                )}
+              </div>
+            ) : !user ? (
+              <div className="mt-6 text-center text-gray-600">
+                Please{" "}
+                <Link to="/login" className="text-blue-600 hover:underline">
+                  log in
+                </Link>{" "}
+                to enroll in this course.
+              </div>
+            ) : (
+              <div className="mt-6 text-center text-gray-600">
+                Tutors cannot enroll in courses.
+              </div>
+            )}
+          </div>
         </div>
-
-        {/* Course Requirements */}
-        {course.requirements && course.requirements.length > 0 && (
-          <div className="bg-white rounded-lg shadow-md p-6 mt-8">
-            <h2 className="text-2xl font-bold mb-4">Requirements</h2>
-            <ul className="list-disc list-inside space-y-2">
-              {course.requirements.map((req, index) => (
-                <li key={index} className="text-gray-700">
-                  {req}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {/* Course Objectives */}
-        {course.objectives && course.objectives.length > 0 && (
-          <div className="bg-white rounded-lg shadow-md p-6 mt-8">
-            <h2 className="text-2xl font-bold mb-4">What You'll Learn</h2>
-            <ul className="list-disc list-inside space-y-2">
-              {course.objectives.map((obj, index) => (
-                <li key={index} className="text-gray-700">
-                  {obj}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
       </div>
+
+      {/* Course Requirements */}
+      {course.requirements && course.requirements.length > 0 && (
+        <div className="bg-white rounded-lg shadow-md p-6 mt-8">
+          <h2 className="text-2xl font-bold mb-4">Requirements</h2>
+          <ul className="list-disc list-inside space-y-2">
+            {course.requirements.map((req, index) => (
+              <li key={index} className="text-gray-700">
+                {req}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Course Objectives */}
+      {course.objectives && course.objectives.length > 0 && (
+        <div className="bg-white rounded-lg shadow-md p-6 mt-8">
+          <h2 className="text-2xl font-bold mb-4">What You'll Learn</h2>
+          <ul className="list-disc list-inside space-y-2">
+            {course.objectives.map((obj, index) => (
+              <li key={index} className="text-gray-700">
+                {obj}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 };

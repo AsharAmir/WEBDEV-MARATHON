@@ -3,6 +3,9 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const morgan = require('morgan');
+const http = require('http');
+const { Server } = require('socket.io');
+const initializeSocket = require('./config/socket');
 
 // Import routes
 const authRoutes = require('./routes/auth');
@@ -33,6 +36,19 @@ if (missingEnvVars.length > 0) {
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 const app = express();
+const server = http.createServer(app);
+
+// Initialize Socket.IO
+const io = new Server(server, {
+  cors: {
+    origin: ['http://localhost:3000', 'http://localhost:5173'],
+    methods: ['GET', 'POST'],
+    credentials: true
+  }
+});
+
+// Initialize socket configuration
+initializeSocket(io);
 
 // Middleware
 app.use(cors({
@@ -72,7 +88,7 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT;
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV}`);
 }); 
