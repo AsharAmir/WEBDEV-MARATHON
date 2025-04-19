@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { UserPlus, Mail, Lock, User, Github, Twitter } from "lucide-react";
 import { authAPI } from "../../services/api";
+import { notifyAuthStateChange } from "../../lib/authEvents";
 
 const SignupForm: React.FC = () => {
   const navigate = useNavigate();
@@ -40,6 +41,9 @@ const SignupForm: React.FC = () => {
       // Save token and user info
       localStorage.setItem("token", response.token);
       localStorage.setItem("user", JSON.stringify(response.user));
+
+      // Notify about auth state change
+      notifyAuthStateChange();
 
       // Redirect based on role
       if (role === "tutor") {

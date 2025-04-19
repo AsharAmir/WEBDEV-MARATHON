@@ -7,7 +7,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { Link } from "react-router-dom";
-import { Course, CourseFilters } from "../../types";
+import { Course, CourseFilters } from "../../types/course";
 import { coursesAPI } from "../../services/api";
 
 const categories = [
@@ -25,7 +25,7 @@ const CourseList: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All Categories");
   const [selectedLevel, setSelectedLevel] = useState("All Levels");
-  const [sortBy, setSortBy] = useState("popular");
+  const [sortBy, setSortBy] = useState<CourseFilters["sortBy"]>("popular");
   const [showFilters, setShowFilters] = useState(false);
   const [courses, setCourses] = useState<Course[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -51,18 +51,24 @@ const CourseList: React.FC = () => {
           filters.sortBy = sortBy;
         }
 
+        console.log("Fetching courses with filters:", filters);
         const data = await coursesAPI.getAll(filters);
+        console.log("Received courses:", data);
         setCourses(data);
       } catch (err) {
-        setError("Failed to load courses. Please try again later.");
         console.error("Error fetching courses:", err);
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Failed to load courses. Please try again later."
+        );
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchCourses();
-  }, [searchTerm, selectedCategory, selectedLevel, sortBy]);
+  }, [selectedCategory, selectedLevel, searchTerm, sortBy]);
 
   if (isLoading) {
     return (
@@ -155,7 +161,9 @@ const CourseList: React.FC = () => {
               </label>
               <select
                 value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
+                onChange={(e) =>
+                  setSortBy(e.target.value as CourseFilters["sortBy"])
+                }
                 className="w-full py-2 px-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="popular">Most Popular</option>
@@ -169,53 +177,58 @@ const CourseList: React.FC = () => {
         </div>
       )}
 
-      {courses.length === 0 ? (
-        <div className="text-center py-12">
-          <BookOpen className="mx-auto h-12 w-12 text-gray-400" />
-          <h3 className="mt-2 text-lg font-medium text-gray-900">
-            No courses found
-          </h3>
-          <p className="mt-1 text-gray-500">
-            Try adjusting your search or filter criteria.
-          </p>
-        </div>
+      {/* Courses Grid */}
+      {isLoading ? (
+        <div className="text-center py-8">Loading courses...</div>
+      ) : error ? (
+        <div className="text-center py-8 text-red-500">{error}</div>
+      ) : courses.length === 0 ? (
+        <div className="text-center py-8">No courses found</div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {courses.map((course) => (
             <div
-              key={course.id}
-              className="bg-white rounded-lg shadow-sm overflow-hidden"
+              key={course._id}
+              className="bg-white rounded-lg shadow-md overflow-hidden"
             >
-              <Link to={`/courses/${course.id}`}>
-                <img
-                  src={course.thumbnail}
-                  alt={course.title}
-                  className="w-full h-48 object-cover"
-                />
-                <div className="p-6">
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                    {course.title}
-                  </h3>
-                  <p className="text-gray-600 mb-4 line-clamp-2">
-                    {course.description}
-                  </p>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center">
-                      <img
-                        src={course.tutorAvatar}
-                        alt={course.tutorName}
-                        className="w-8 h-8 rounded-full mr-2"
-                      />
-                      <span className="text-sm text-gray-600">
-                        {course.tutorName}
-                      </span>
-                    </div>
-                    <span className="text-lg font-semibold text-gray-900">
-                      ${course.price}
+              <div className="p-4">
+                <h3 className="text-xl font-semibold mb-2">{course.title}</h3>
+                <p className="text-gray-600 mb-4">{course.description}</p>
+                <div className="flex items-center justify-between mb-4">
+                  <span className="text-blue-600 font-semibold">
+                    ${course.price}
+                  </span>
+                  <span className="text-sm text-gray-500">{course.level}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <img
+                      src={course.tutorAvatar || "/default-avatar.png"}
+                      alt={course.tutorName}
+                      className="w-8 h-8 rounded-full mr-2"
+                    />
+                    <span className="text-sm text-gray-600">
+                      {course.tutorName}
+                    </span>
+                  </div>
+                  <div className="flex items-center">
+                    <span className="text-sm text-gray-500 mr-2">
+                      {course.totalStudents} students
+                    </span>
+                    <span className="text-sm text-yellow-500">
+                      {course.rating} ★
                     </span>
                   </div>
                 </div>
-              </Link>
+              </div>
+              <div className="bg-gray-50 px-4 py-3">
+                <Link
+                  to={`/courses/${course._id}`}
+                  className="block text-center text-blue-600 hover:text-blue-800 font-medium"
+                >
+                  View Course
+                </Link>
+              </div>
             </div>
           ))}
         </div>

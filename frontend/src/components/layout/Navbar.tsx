@@ -10,13 +10,29 @@ const Navbar: React.FC = () => {
   const [userRole, setUserRole] = useState<"student" | "tutor" | null>(null);
   const location = useLocation();
 
-  useEffect(() => {
-    // Check if user is logged in from localStorage
+  const checkAuthStatus = () => {
     const user = localStorage.getItem("user");
     if (user) {
       setIsLoggedIn(true);
       setUserRole(JSON.parse(user).role);
+    } else {
+      setIsLoggedIn(false);
+      setUserRole(null);
     }
+  };
+
+  useEffect(() => {
+    // Check initial auth status
+    checkAuthStatus();
+
+    // Listen for storage events (logout/login)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "user") {
+        checkAuthStatus();
+      }
+    };
+
+    window.addEventListener("storage", handleStorageChange);
 
     // Handle scroll effect
     const handleScroll = () => {
@@ -30,6 +46,7 @@ const Navbar: React.FC = () => {
     window.addEventListener("scroll", handleScroll);
     return () => {
       window.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("storage", handleStorageChange);
     };
   }, []);
 

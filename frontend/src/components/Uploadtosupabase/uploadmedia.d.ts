@@ -1,0 +1,1 @@
+export function uploadMedia(file: File, type: 'image' | 'video'): Promise<{ url?: string; error?: any }>;

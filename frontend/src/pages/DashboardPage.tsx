@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
-import TutorDashboard from "../components/dashboard/TutorDashboard";
+import TutorDashboard from "../pages/TutorDashboard";
 import StudentDashboard from "../components/dashboard/StudentDashboard";
 
 const DashboardPage: React.FC = () => {

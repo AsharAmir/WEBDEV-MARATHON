@@ -7,7 +7,7 @@ export interface User {
 }
 
 export interface Course {
-  id: string;
+  _id: string;
   title: string;
   description: string;
   thumbnail: string;
@@ -16,7 +16,7 @@ export interface Course {
   category: string;
   tutorId: string;
   tutorName: string;
-  tutorAvatar: string;
+  tutorAvatar?: string;
   rating: number;
   totalStudents: number;
   createdAt: string;

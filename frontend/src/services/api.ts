@@ -1,7 +1,29 @@
+import { Course, CourseFilters } from '../types/course';
+
 const API_URL = 'http://localhost:5000/api';
 
+interface ApiResponse<T> {
+  data?: T;
+  message?: string;
+  error?: string;
+}
+
+interface ApiCourseResponse extends Course {}
+
+export interface Enrollment {
+  _id: string;
+  courseId: {
+    _id: string;
+    title: string;
+    thumbnail: string;
+    tutorName: string;
+  };
+  progress: number;
+  enrolledAt: string;
+}
+
 // Helper function to handle API requests
-const request = async (endpoint, options = {}) => {
+const request = async <T>(endpoint: string, options: RequestInit = {}): Promise<T> => {
   const token = localStorage.getItem('token');
   const headers = {
     'Content-Type': 'application/json',
@@ -29,13 +51,13 @@ const request = async (endpoint, options = {}) => {
 
 // Auth API
 export const authAPI = {
-  login: (email, password) => 
+  login: (email: string, password: string) => 
     request('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     }),
   
-  signup: (name, email, password, role) =>
+  signup: (name: string, email: string, password: string, role: string) =>
     request('/auth/signup', {
       method: 'POST',
       body: JSON.stringify({ name, email, password, role }),
@@ -54,52 +76,45 @@ export const coursesAPI = {
     return request(`/courses?${queryParams}`);
   },
   
-  getById: (id) => request(`/courses/${id}`),
+  getById: (id: string) => request(`/courses/${id}`),
   
-  create: (courseData) =>
+  getTutorCourses: (tutorId: string) => 
+    request(`/courses/tutor/${tutorId}`),
+  
+  create: (courseData: any) =>
     request('/courses', {
       method: 'POST',
       body: JSON.stringify(courseData),
     }),
   
-  update: (id, courseData) =>
+  update: (id: string, courseData: any) =>
     request(`/courses/${id}`, {
       method: 'PUT',
       body: JSON.stringify(courseData),
     }),
   
-  delete: (id) =>
+  delete: (id: string) =>
     request(`/courses/${id}`, {
       method: 'DELETE',
     }),
-
-  enroll: (courseId) =>
-    request(`/courses/${courseId}/enroll`, {
-      method: 'POST',
-    }),
-
-  unenroll: (courseId) =>
-    request(`/courses/${courseId}/unenroll`, {
-      method: 'POST',
-    }),
-
-  getEnrolledCourses: () => request('/courses/enrolled'),
-
-  getCreatedCourses: () => request('/courses/created'),
 };
 
-// Chat API
-export const chatAPI = {
-  getMessages: (courseId) => request(`/chat/course/${courseId}`),
-  
-  sendMessage: (userId, courseId, content) =>
-    request('/chat', {
+// Enrollments API
+export const enrollmentsAPI = {
+  getMyEnrollments: () => request('/enrollments/my-enrollments'),
+
+  createPaymentIntent: (courseId: string) =>
+    request('/enrollments/create-payment-intent', {
       method: 'POST',
-      body: JSON.stringify({ userId, courseId, content }),
+      body: JSON.stringify({ courseId }),
     }),
-  
-  deleteMessage: (id) =>
-    request(`/chat/${id}`, {
-      method: 'DELETE',
+
+  completeEnrollment: (courseId: string, paymentIntentId: string) =>
+    request('/enrollments/complete-enrollment', {
+      method: 'POST',
+      body: JSON.stringify({ courseId, paymentIntentId }),
     }),
+
+  getEnrollmentStatus: (courseId: string) =>
+    request(`/enrollments/status/${courseId}`),
 }; 

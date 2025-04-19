@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { User, LogOut, ChevronDown } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { authAPI } from "../../services/api";
+import { notifyAuthStateChange } from "../../lib/authEvents";
 
 interface ProfileDropdownProps {
   user: {
@@ -36,6 +37,7 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ user }) => {
   const handleSignOut = async () => {
     try {
       await authAPI.logout();
+      notifyAuthStateChange();
       navigate("/login");
     } catch (error) {
       console.error("Failed to sign out:", error);
