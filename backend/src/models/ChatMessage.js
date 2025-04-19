@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-
+// import mongoose from 'mongoose';
 const chatMessageSchema = new mongoose.Schema({
   userId: {
     type: mongoose.Schema.Types.ObjectId,

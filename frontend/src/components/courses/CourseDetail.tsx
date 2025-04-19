@@ -16,6 +16,13 @@ const CourseDetail: React.FC = () => {
           throw new Error("Course ID is required");
         }
         const courseData = (await coursesAPI.getById(courseId)) as Course;
+        console.log("Fetched course data:", courseData);
+        console.log("Lessons array:", courseData.lessons);
+        if (Array.isArray(courseData.lessons)) {
+          courseData.lessons.forEach((lesson, index) => {
+            console.log(`Lesson ${index + 1}:`, lesson);
+          });
+        }
         setCourse(courseData);
       } catch (err) {
         setError(
@@ -108,48 +115,79 @@ const CourseDetail: React.FC = () => {
             )}
 
           {/* Course Curriculum */}
-          {course.modules && course.modules.length > 0 && (
-            <section className="mb-8">
-              <h2 className="text-2xl font-semibold mb-4">Course Curriculum</h2>
-              <div className="space-y-4">
-                {course.modules.map((module) => (
-                  <div
-                    key={module.title}
-                    className="border rounded-lg overflow-hidden"
-                  >
-                    <div className="bg-gray-50 p-4">
-                      <h3 className="font-medium">{module.title}</h3>
-                      {module.description && (
-                        <p className="text-sm text-gray-600 mt-1">
-                          {module.description}
-                        </p>
-                      )}
-                    </div>
-                    {module.lessons && module.lessons.length > 0 && (
-                      <div className="divide-y">
-                        {module.lessons.map((lesson) => (
-                          <div
-                            key={lesson.title}
-                            className="p-4 flex items-center justify-between"
-                          >
-                            <div>
-                              <h4 className="font-medium">{lesson.title}</h4>
-                              <p className="text-sm text-gray-600">
-                                {lesson.description}
-                              </p>
+          <section className="mb-8">
+            <h2 className="text-2xl font-semibold mb-4">Course Content</h2>
+            {(() => {
+              console.log("Rendering course content section");
+              console.log("Course object:", course);
+              console.log("Lessons array in render:", course.lessons);
+
+              return (
+                <div className="space-y-4">
+                  {Array.isArray(course.lessons) &&
+                  course.lessons.length > 0 ? (
+                    course.lessons.map((lesson: any, index: number) => {
+                      console.log(`Rendering lesson ${index}:`, lesson);
+                      return (
+                        <div
+                          key={lesson._id || `lesson-${index}`}
+                          className="border rounded-lg overflow-hidden bg-white shadow-sm"
+                        >
+                          <div className="p-4">
+                            <div className="flex justify-between items-start">
+                              <div className="flex items-center">
+                                <span className="text-gray-500 mr-3">
+                                  Lesson {index + 1}
+                                </span>
+                                <div>
+                                  <h3 className="font-medium text-lg">
+                                    {lesson.title || `Lesson ${index + 1}`}
+                                  </h3>
+                                  <p className="text-gray-600 mt-1">
+                                    {lesson.description ||
+                                      "No description available"}
+                                  </p>
+                                </div>
+                              </div>
+                              <span className="text-sm text-gray-500 ml-4 whitespace-nowrap">
+                                {typeof lesson.duration === "number"
+                                  ? `${lesson.duration} min`
+                                  : lesson.duration || "Duration not set"}
+                              </span>
                             </div>
-                            <span className="text-sm text-gray-500">
-                              {lesson.duration}
-                            </span>
+                            {lesson.videoUrl && (
+                              <div className="mt-4">
+                                <video
+                                  className="w-full rounded"
+                                  src={lesson.videoUrl}
+                                  controls
+                                  preload="metadata"
+                                />
+                              </div>
+                            )}
+                            {lesson.status === "processing" && (
+                              <div className="mt-2 text-yellow-600 text-sm">
+                                Video is being processed...
+                              </div>
+                            )}
+                            {lesson.status === "failed" && (
+                              <div className="mt-2 text-red-600 text-sm">
+                                Video processing failed
+                              </div>
+                            )}
                           </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="text-center py-8 bg-gray-50 rounded-lg">
+                      <p className="text-gray-500">No lessons available yet</p>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+          </section>
 
           {/* Requirements */}
           {course.requirements && course.requirements.length > 0 && (

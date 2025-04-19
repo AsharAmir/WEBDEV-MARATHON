@@ -1,9 +1,17 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { coursesAPI } from "../services/api";
-import type { Course, Lesson } from "../types/course";
+import { Course, Lesson } from "../types/course";
 import { Plus, Edit, Trash, Video } from "lucide-react";
 import { toast } from "react-hot-toast";
+import { uploadMedia } from "../components/Uploadtosupabase/uploadmedia";
+
+interface NewLesson {
+  title: string;
+  description: string;
+  videoFile: File | null;
+  duration: string;
+}
 
 const CourseManagement: React.FC = () => {
   const navigate = useNavigate();
@@ -12,16 +20,13 @@ const CourseManagement: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [isEditing, setIsEditing] = useState(false);
-  const [newLesson, setNewLesson] = useState<Partial<Lesson>>({
+  const [showAddLessonForm, setShowAddLessonForm] = useState(false);
+  const [newLesson, setNewLesson] = useState<NewLesson>({
     title: "",
     description: "",
+    videoFile: null,
     duration: "",
-    videoUrl: "",
-    order: 0,
   });
-  const [lessonTitle, setLessonTitle] = useState("");
-  const [lessonContent, setLessonContent] = useState("");
-  const [lessonDuration, setLessonDuration] = useState("");
 
   useEffect(() => {
     const fetchTutorCourses = async () => {
@@ -81,20 +86,20 @@ const CourseManagement: React.FC = () => {
   };
 
   const handleUpdateCourse = async () => {
-    if (!selectedCourse?._id) return;
-
+    if (!selectedCourse) return;
     try {
-      const updatedCourse = await coursesAPI.update(selectedCourse._id, {
-        ...selectedCourse,
-        lessons: selectedCourse.lessons || [],
-      });
+      const updatedCourse = (await coursesAPI.update(
+        selectedCourse._id,
+        selectedCourse
+      )) as Course;
       setCourses(
-        courses.map((c) => (c._id === updatedCourse._id ? updatedCourse : c))
+        courses.map((course) =>
+          course._id === updatedCourse._id ? updatedCourse : course
+        )
       );
-      setSelectedCourse(null);
+      setIsEditing(false);
       toast.success("Course updated successfully");
     } catch (error) {
-      console.error("Error updating course:", error);
       toast.error("Failed to update course");
     }
   };
@@ -111,32 +116,115 @@ const CourseManagement: React.FC = () => {
     }
   };
 
-  const handleAddLesson = async () => {
-    if (!selectedCourse?._id) return;
+  const handleAddLesson = async (e: React.FormEvent) => {
+    e.preventDefault();
 
+    console.log("Starting lesson addition with:", {
+      courseId: selectedCourse?._id,
+      lessonData: {
+        ...newLesson,
+        videoFile: newLesson.videoFile
+          ? {
+              name: newLesson.videoFile.name,
+              type: newLesson.videoFile.type,
+              size: newLesson.videoFile.size,
+            }
+          : null,
+      },
+    });
+
+    if (!selectedCourse) {
+      toast.error("Please select a course first");
+      return;
+    }
+
+    if (!newLesson.videoFile) {
+      toast.error("Please select a video file");
+      return;
+    }
+
+    if (!newLesson.title || !newLesson.description || !newLesson.duration) {
+      toast.error("Please fill in all required fields");
+      return;
+    }
+
+    const toastId = "lessonUpload";
     try {
-      const newLesson = {
-        title: lessonTitle,
-        content: lessonContent,
-        duration: parseInt(lessonDuration),
-        order: (selectedCourse.lessons?.length || 0) + 1,
+      // Show loading state
+      toast.loading("Uploading video to Supabase...", { id: toastId });
+
+      // First upload the video to Supabase
+      console.log("Uploading video to Supabase...");
+      const uploadResult = await uploadMedia(newLesson.videoFile, "video");
+
+      if (uploadResult.error) {
+        console.error("Video upload failed:", uploadResult.error);
+        throw new Error(`Failed to upload video: ${uploadResult.error}`);
+      }
+
+      if (!uploadResult.url) {
+        throw new Error("Failed to get video URL from Supabase");
+      }
+
+      console.log("Video uploaded successfully:", uploadResult.url);
+
+      // Update loading state
+      toast.loading("Creating lesson in database...", { id: toastId });
+
+      // Now create the lesson with the video URL
+      const lessonData = {
+        title: newLesson.title.trim(),
+        description: newLesson.description.trim(),
+        duration: newLesson.duration.trim(),
+        videoUrl: uploadResult.url,
+        videoFileName: newLesson.videoFile.name,
       };
 
-      const updatedCourse = await coursesAPI.addLesson(
+      console.log("Creating lesson with data:", lessonData);
+
+      const updatedCourse = (await coursesAPI.addLesson(
         selectedCourse._id,
-        newLesson
+        lessonData
+      )) as unknown as Course;
+
+      console.log("Lesson created successfully:", updatedCourse);
+
+      // Update the courses list with the new data
+      setCourses((prevCourses) =>
+        prevCourses.map((course) =>
+          course._id === updatedCourse._id ? updatedCourse : course
+        )
       );
-      setCourses(
-        courses.map((c) => (c._id === updatedCourse._id ? updatedCourse : c))
-      );
+
+      // Update the selected course
       setSelectedCourse(updatedCourse);
-      setLessonTitle("");
-      setLessonContent("");
-      setLessonDuration("");
-      toast.success("Lesson added successfully");
+
+      // Reset the form
+      setNewLesson({
+        title: "",
+        description: "",
+        videoFile: null,
+        duration: "",
+      });
+      setShowAddLessonForm(false);
+
+      // Show success message
+      toast.success("Lesson added successfully", { id: toastId });
     } catch (error) {
       console.error("Error adding lesson:", error);
-      toast.error("Failed to add lesson");
+      toast.error(
+        error instanceof Error ? error.message : "Failed to add lesson",
+        { id: toastId }
+      );
+    }
+  };
+
+  const handleCourseSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (selectedCourse) {
+      await handleUpdateCourse();
+    } else {
+      await handleCreateCourse(selectedCourse || {});
     }
   };
 
@@ -185,6 +273,10 @@ const CourseManagement: React.FC = () => {
                     ? "border-blue-500 bg-blue-50"
                     : "border-gray-200 hover:border-blue-300"
                 }`}
+                onClick={() => {
+                  setSelectedCourse(course);
+                  setIsEditing(false);
+                }}
               >
                 <div className="flex justify-between items-start">
                   <div>
@@ -195,7 +287,8 @@ const CourseManagement: React.FC = () => {
                   </div>
                   <div className="flex space-x-2">
                     <button
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.stopPropagation();
                         setSelectedCourse(course);
                         setIsEditing(true);
                       }}
@@ -204,7 +297,10 @@ const CourseManagement: React.FC = () => {
                       <Edit className="w-5 h-5" />
                     </button>
                     <button
-                      onClick={() => handleDeleteCourse(course._id)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteCourse(course._id);
+                      }}
                       className="text-red-500 hover:text-red-600"
                     >
                       <Trash className="w-5 h-5" />
@@ -223,28 +319,7 @@ const CourseManagement: React.FC = () => {
               <h2 className="text-xl font-semibold mb-4">
                 {selectedCourse ? "Edit Course" : "Create Course"}
               </h2>
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  const formData = new FormData(e.currentTarget);
-                  const courseData = {
-                    title: formData.get("title") as string,
-                    description: formData.get("description") as string,
-                    price: Number(formData.get("price")),
-                    level: formData.get("level") as Course["level"],
-                    categories: (formData.get("categories") as string).split(
-                      ","
-                    ),
-                  };
-
-                  if (selectedCourse) {
-                    handleUpdateCourse();
-                  } else {
-                    handleCreateCourse(courseData);
-                  }
-                }}
-                className="space-y-4"
-              >
+              <form onSubmit={handleCourseSubmit} className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700">
                     Title
@@ -252,7 +327,13 @@ const CourseManagement: React.FC = () => {
                   <input
                     type="text"
                     name="title"
-                    defaultValue={selectedCourse?.title}
+                    value={selectedCourse?.title || ""}
+                    onChange={(e) =>
+                      setSelectedCourse({
+                        ...selectedCourse,
+                        title: e.target.value,
+                      } as Course)
+                    }
                     required
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                   />
@@ -263,7 +344,13 @@ const CourseManagement: React.FC = () => {
                   </label>
                   <textarea
                     name="description"
-                    defaultValue={selectedCourse?.description}
+                    value={selectedCourse?.description || ""}
+                    onChange={(e) =>
+                      setSelectedCourse({
+                        ...selectedCourse,
+                        description: e.target.value,
+                      } as Course)
+                    }
                     required
                     rows={3}
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
@@ -271,49 +358,50 @@ const CourseManagement: React.FC = () => {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">
-                    Price
+                    Duration
                   </label>
                   <input
-                    type="number"
-                    name="price"
-                    defaultValue={selectedCourse?.price}
+                    type="text"
+                    name="duration"
+                    value={selectedCourse?.duration || ""}
+                    onChange={(e) =>
+                      setSelectedCourse({
+                        ...selectedCourse,
+                        duration: e.target.value,
+                      } as Course)
+                    }
                     required
-                    min="0"
-                    step="0.01"
+                    placeholder="e.g., 30 minutes"
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">
-                    Level
-                  </label>
-                  <select
-                    name="level"
-                    defaultValue={selectedCourse?.level}
-                    required
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                  >
-                    <option value="beginner">Beginner</option>
-                    <option value="intermediate">Intermediate</option>
-                    <option value="advanced">Advanced</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Categories (comma-separated)
+                    Video File
                   </label>
                   <input
-                    type="text"
-                    name="categories"
-                    defaultValue={selectedCourse?.categories.join(",")}
+                    type="file"
+                    accept="video/*"
+                    onChange={(e) =>
+                      setSelectedCourse({
+                        ...selectedCourse,
+                        videoFile: e.target.files?.[0] || null,
+                      } as Course)
+                    }
                     required
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                    className="mt-1 block w-full"
                   />
                 </div>
                 <div className="flex justify-end space-x-4">
                   <button
                     type="button"
-                    onClick={() => setIsEditing(false)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsEditing(false);
+                      if (!selectedCourse) {
+                        setSelectedCourse(null);
+                      }
+                    }}
                     className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
                   >
                     Cancel
@@ -331,9 +419,20 @@ const CourseManagement: React.FC = () => {
             <div className="space-y-6">
               {/* Course Details */}
               <div className="bg-white rounded-lg border border-gray-200 p-6">
-                <h2 className="text-xl font-semibold mb-4">
-                  {selectedCourse.title}
-                </h2>
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-xl font-semibold">
+                    {selectedCourse.title}
+                  </h2>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsEditing(true);
+                    }}
+                    className="text-blue-500 hover:text-blue-600"
+                  >
+                    <Edit className="w-5 h-5" />
+                  </button>
+                </div>
                 <p className="text-gray-600 mb-4">
                   {selectedCourse.description}
                 </p>
@@ -356,15 +455,10 @@ const CourseManagement: React.FC = () => {
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-lg font-semibold">Lessons</h3>
                   <button
-                    onClick={() =>
-                      setNewLesson({
-                        title: "",
-                        description: "",
-                        duration: "",
-                        videoUrl: "",
-                        order: selectedCourse.lessons?.length || 0,
-                      })
-                    }
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowAddLessonForm(true);
+                    }}
                     className="text-blue-500 hover:text-blue-600 flex items-center space-x-1"
                   >
                     <Plus className="w-5 h-5" />
@@ -372,13 +466,9 @@ const CourseManagement: React.FC = () => {
                   </button>
                 </div>
 
-                {newLesson.title && (
+                {showAddLessonForm && (
                   <form
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      const formData = new FormData(e.currentTarget);
-                      handleAddLesson();
-                    }}
+                    onSubmit={handleAddLesson}
                     className="mb-4 p-4 border border-blue-200 rounded-lg bg-blue-50"
                   >
                     <div className="space-y-4">
@@ -388,7 +478,6 @@ const CourseManagement: React.FC = () => {
                         </label>
                         <input
                           type="text"
-                          name="title"
                           value={newLesson.title}
                           onChange={(e) =>
                             setNewLesson({
@@ -405,7 +494,6 @@ const CourseManagement: React.FC = () => {
                           Description
                         </label>
                         <textarea
-                          name="description"
                           value={newLesson.description}
                           onChange={(e) =>
                             setNewLesson({
@@ -424,7 +512,6 @@ const CourseManagement: React.FC = () => {
                         </label>
                         <input
                           type="text"
-                          name="duration"
                           value={newLesson.duration}
                           onChange={(e) =>
                             setNewLesson({
@@ -439,34 +526,34 @@ const CourseManagement: React.FC = () => {
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700">
-                          Video URL
+                          Video File
                         </label>
                         <input
-                          type="url"
-                          name="videoUrl"
-                          value={newLesson.videoUrl}
+                          type="file"
+                          accept="video/*"
                           onChange={(e) =>
                             setNewLesson({
                               ...newLesson,
-                              videoUrl: e.target.value,
+                              videoFile: e.target.files?.[0] || null,
                             })
                           }
                           required
-                          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                          className="mt-1 block w-full"
                         />
                       </div>
                       <div className="flex justify-end space-x-4">
                         <button
                           type="button"
-                          onClick={() =>
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShowAddLessonForm(false);
                             setNewLesson({
                               title: "",
                               description: "",
+                              videoFile: null,
                               duration: "",
-                              videoUrl: "",
-                              order: 0,
-                            })
-                          }
+                            });
+                          }}
                           className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
                         >
                           Cancel
@@ -483,37 +570,40 @@ const CourseManagement: React.FC = () => {
                 )}
 
                 <div className="space-y-4">
-                  {selectedCourse.lessons &&
-                    selectedCourse.lessons.map((lesson, index) => (
-                      <div
-                        key={index}
-                        className="flex items-center justify-between p-4 border border-gray-200 rounded-lg"
-                      >
-                        <div className="flex items-center space-x-4">
-                          <Video className="w-5 h-5 text-gray-500" />
-                          <div>
-                            <p className="font-medium">{lesson.title}</p>
-                            <p className="text-sm text-gray-500">
+                  {selectedCourse?.lessons &&
+                  selectedCourse.lessons.length > 0 ? (
+                    selectedCourse.lessons.map(
+                      (lesson: Lesson, index: number) => (
+                        <div
+                          key={lesson._id || `new-lesson-${index}`}
+                          className="p-4 border border-gray-200 rounded-lg"
+                        >
+                          <div className="flex items-center justify-between">
+                            <h3 className="font-medium">{lesson.title}</h3>
+                            <span className="text-sm text-gray-500">
                               {lesson.duration}
-                            </p>
+                            </span>
                           </div>
+                          <p className="text-gray-600 mt-2">
+                            {lesson.description}
+                          </p>
+                          {lesson.videoUrl && (
+                            <div className="mt-4">
+                              <video
+                                controls
+                                className="w-full rounded-lg"
+                                src={lesson.videoUrl}
+                              />
+                            </div>
+                          )}
                         </div>
-                        <div className="flex space-x-2">
-                          <button
-                            onClick={() => {
-                              const updatedLessons = [
-                                ...selectedCourse.lessons,
-                              ];
-                              updatedLessons.splice(index, 1);
-                              handleUpdateCourse();
-                            }}
-                            className="text-red-500 hover:text-red-600"
-                          >
-                            <Trash className="w-5 h-5" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
+                      )
+                    )
+                  ) : (
+                    <p className="text-center text-gray-500">
+                      No lessons available
+                    </p>
+                  )}
                 </div>
               </div>
             </div>

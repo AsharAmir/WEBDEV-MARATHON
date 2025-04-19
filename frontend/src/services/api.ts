@@ -1,4 +1,5 @@
-import { Course, CourseFilters } from '../types/course';
+import { Course, CourseFilters, Lesson } from '../types';
+import { uploadMedia } from '../components/Uploadtosupabase/uploadmedia';
 
 const API_URL = 'http://localhost:5000/api';
 
@@ -25,11 +26,26 @@ export interface Enrollment {
 // Helper function to handle API requests
 const request = async <T>(endpoint: string, options: RequestInit = {}): Promise<T> => {
   const token = localStorage.getItem('token');
-  const headers = {
-    'Content-Type': 'application/json',
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    ...options.headers,
-  };
+  
+  // Initialize headers
+  const headers = new Headers(options.headers);
+  
+  // Add authorization if token exists
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+
+  // Only add Content-Type for JSON requests
+  if (!(options.body instanceof FormData)) {
+    headers.set('Content-Type', 'application/json');
+  }
+
+  console.log(`Making ${options.method || 'GET'} request to ${endpoint}`, {
+    headers: Object.fromEntries(headers.entries()),
+    body: options.body instanceof FormData 
+      ? 'FormData object' 
+      : options.body ? JSON.parse(options.body as string) : undefined
+  });
 
   try {
     const response = await fetch(`${API_URL}${endpoint}`, {
@@ -39,10 +55,13 @@ const request = async <T>(endpoint: string, options: RequestInit = {}): Promise<
 
     if (!response.ok) {
       const error = await response.json();
+      console.error('API Error Response:', error);
       throw new Error(error.message || 'Something went wrong');
     }
 
-    return await response.json();
+    const data = await response.json();
+    console.log(`Response from ${endpoint}:`, data);
+    return data;
   } catch (error) {
     console.error('API Error:', error);
     throw error;
@@ -97,6 +116,49 @@ export const coursesAPI = {
     request(`/courses/${id}`, {
       method: 'DELETE',
     }),
+
+  addLesson: async (courseId: string, lessonData: { 
+    title: string;
+    description: string;
+    duration: string;
+    videoUrl: string;
+    videoFileName?: string;
+  }): Promise<Course> => {
+    console.log('Adding lesson:', { courseId, lessonData });
+    
+    const payload = {
+      title: lessonData.title,
+      description: lessonData.description,
+      duration: lessonData.duration,
+      videoUrl: lessonData.videoUrl,
+      fileName: lessonData.videoFileName
+    };
+
+    console.log('Sending to backend:', payload);
+    
+    // The response will now be the updated course with populated lessons
+    const updatedCourse = await request<Course>(`/courses/${courseId}/lessons`, {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+    
+    console.log('Updated course with new lesson:', updatedCourse);
+    return updatedCourse;
+  },
+
+  updateLesson: (courseId: string, lessonId: string, lessonData: any) =>
+    request(`/courses/${courseId}/lessons/${lessonId}`, {
+      method: 'PUT',
+      body: JSON.stringify(lessonData),
+    }),
+
+  deleteLesson: (courseId: string, lessonId: string) =>
+    request(`/courses/${courseId}/lessons/${lessonId}`, {
+      method: 'DELETE',
+    }),
+
+  getLessonStatus: (courseId: string, lessonId: string) =>
+    request(`/courses/${courseId}/lessons/${lessonId}/status`),
 };
 
 // Enrollments API

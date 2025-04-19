@@ -32,6 +32,7 @@ const stripePromise = (() => {
 interface EnrollButtonProps {
   courseId: string;
   price: number;
+  isEnrolled?: boolean;
   onEnrollmentComplete?: () => void;
 }
 
@@ -101,11 +102,11 @@ const CheckoutForm: React.FC<{
 const EnrollButton: React.FC<EnrollButtonProps> = ({
   courseId,
   price,
+  isEnrolled,
   onEnrollmentComplete,
 }) => {
   const [showPayment, setShowPayment] = useState(false);
   const [clientSecret, setClientSecret] = useState<string>("");
-  const [isEnrolled, setIsEnrolled] = useState(false);
 
   const handleEnrollClick = async () => {
     try {
@@ -147,7 +148,6 @@ const EnrollButton: React.FC<EnrollButtonProps> = ({
               <CheckoutForm
                 courseId={courseId}
                 onEnrollmentComplete={() => {
-                  setIsEnrolled(true);
                   onEnrollmentComplete?.();
                 }}
               />

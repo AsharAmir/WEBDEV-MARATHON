@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { coursesAPI } from "../services/api";
 import type { Course } from "../types/course";
+import { Link } from "react-router-dom";
+import { Plus, Settings } from "lucide-react";
 
 interface EnrolledStudent {
   studentId: string;
@@ -77,7 +79,25 @@ const TutorDashboard: React.FC = () => {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-8">My Courses</h1>
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-3xl font-bold">My Courses</h1>
+        <div className="flex space-x-4">
+          <Link
+            to="/manage-courses"
+            className="bg-blue-500 text-white px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-blue-600"
+          >
+            <Settings className="w-5 h-5" />
+            <span>Manage Courses</span>
+          </Link>
+          <Link
+            to="/create-course"
+            className="bg-green-500 text-white px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-green-600"
+          >
+            <Plus className="w-5 h-5" />
+            <span>Create Course</span>
+          </Link>
+        </div>
+      </div>
 
       {courses.length === 0 ? (
         <div className="text-center text-gray-500">

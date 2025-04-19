@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+// import mongoose from 'mongoose';
 
 const enrollmentSchema = new mongoose.Schema({
   studentId: {

@@ -77,14 +77,16 @@ export interface Course {
 }
 
 export interface Lesson {
-  id: string;
+  _id: string;
   title: string;
   description: string;
   videoUrl: string;
-  duration: string; // e.g., "10:30"
-  transcript?: string;
-  courseId?: string;
-  order?: number;
+  duration?: string;
+  order: number;
+  status: 'processing' | 'completed' | 'failed';
+  transcription?: string;
+  summary?: string;
+  notes?: string;
 }
 
 export interface ChatMessage {

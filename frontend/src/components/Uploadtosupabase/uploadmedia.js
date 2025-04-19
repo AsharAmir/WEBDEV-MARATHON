@@ -7,29 +7,63 @@ const supabase = createClient(
 )
 
 export async function uploadMedia(file, type) {
-  if (!file) return { error: 'No file provided' }
+  console.log('Starting upload with file:', { 
+    name: file?.name,
+    type: file?.type,
+    size: file?.size 
+  });
 
-  const fileName = `${Date.now()}_${file.name}`
-  
-  // Determine folder based on type
-  const folder = type === 'image' ? 'images' : 'videos'
-  const filePath = `${folder}/${fileName}`
-  const bucket = 'vedios' // Replace with your actual bucket name if it's different
-
-  const { data, error } = await supabase.storage
-    .from(bucket)
-    .upload(filePath, file, {
-      contentType: file.type,
-    })
-
-  if (error) {
-    console.error('Upload error:', error.message)
-    return { error }
+  if (!file) {
+    console.error('No file provided to uploadMedia');
+    return { error: 'No file provided' };
   }
 
-  const { data: publicUrlData } = supabase.storage
-    .from(bucket)
-    .getPublicUrl(filePath)
+  try {
+    // Create a unique file name with timestamp
+    const timestamp = Date.now();
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${timestamp}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+    
+    // Determine folder based on type
+    const folder = type === 'image' ? 'images' : 'videos';
+    const filePath = `${folder}/${fileName}`;
 
-  return { url: publicUrlData.publicUrl }
+    console.log('Uploading file to Supabase:', { 
+      bucket: 'vedios',
+      filePath,
+      contentType: file.type 
+    });
+
+    // Upload file to Supabase Storage
+    const { data, error: uploadError } = await supabase.storage
+      .from('vedios')
+      .upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: false,
+        contentType: file.type,
+      });
+
+    if (uploadError) {
+      console.error('Supabase upload error:', uploadError);
+      return { error: uploadError.message };
+    }
+
+    console.log('File uploaded successfully:', data);
+
+    // Get the public URL
+    const { data: urlData, error: urlError } = supabase.storage
+      .from('vedios')
+      .getPublicUrl(filePath);
+
+    if (urlError) {
+      console.error('Failed to get public URL:', urlError);
+      return { error: urlError.message };
+    }
+
+    console.log('Got public URL:', urlData);
+    return { url: urlData.publicUrl };
+  } catch (error) {
+    console.error('Unexpected error in uploadMedia:', error);
+    return { error: error.message };
+  }
 }

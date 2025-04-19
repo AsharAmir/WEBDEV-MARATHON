@@ -1,28 +1,5 @@
 const mongoose = require('mongoose');
-
-const lessonSchema = new mongoose.Schema({
-  title: {
-    type: String,
-    required: true
-  },
-  description: {
-    type: String,
-    required: true
-  },
-  videoUrl: {
-    type: String,
-    required: true
-  },
-  duration: {
-    type: String,
-    required: true
-  },
-  transcript: {
-    type: String,
-    default: ''
-  }
-});
-
+// import mongoose from 'mongoose';
 const courseSchema = new mongoose.Schema({
   title: {
     type: String,
@@ -65,7 +42,10 @@ const courseSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
-  lessons: [lessonSchema],
+  lessons: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Lesson'
+  }],
   categories: [{
     type: String,
     required: true
@@ -83,6 +63,15 @@ const courseSchema = new mongoose.Schema({
     type: Date,
     default: Date.now
   }
+}, {
+  timestamps: true
 });
 
-module.exports = mongoose.model('Course', courseSchema); 
+// Create indexes for better query performance
+courseSchema.index({ tutorId: 1 });
+courseSchema.index({ categories: 1 });
+courseSchema.index({ title: 'text', description: 'text' });
+
+const Course = mongoose.model('Course', courseSchema);
+
+module.exports = Course; 

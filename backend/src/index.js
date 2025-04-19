@@ -7,6 +7,7 @@ const morgan = require('morgan');
 // Import routes
 const authRoutes = require('./routes/auth');
 const courseRoutes = require('./routes/courses');
+const lessonRoutes = require('./routes/lessons');
 const chatRoutes = require('./routes/chat');
 const enrollmentRoutes = require('./routes/enrollments');
 
@@ -17,7 +18,9 @@ const requiredEnvVars = [
   'PORT', 
   'CORS_ORIGIN',
   'STRIPE_SECRET_KEY',
-  'STRIPE_PUBLIC_KEY'
+  'SUPABASE_URL',
+  'SUPABASE_SERVICE_KEY',
+  'GEMINI_API_KEY'
 ];
 const missingEnvVars = requiredEnvVars.filter(envVar => !process.env[envVar]);
 
@@ -55,6 +58,7 @@ mongoose.connect(process.env.MONGODB_URI, {
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/courses', courseRoutes);
+app.use('/api', lessonRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/enrollments', enrollmentRoutes);
 

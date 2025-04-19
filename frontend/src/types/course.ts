@@ -5,31 +5,41 @@ export interface Course {
   price: number;
   level: 'beginner' | 'intermediate' | 'advanced';
   categories: string[];
-  tutorId: string;
+  tutorId: {
+    _id: string;
+    name: string;
+    avatar: string;
+    bio: string;
+  };
   tutorName: string;
-  tutorAvatar?: string;
+  tutorAvatar: string;
   tutorTitle?: string;
   tutorBio?: string;
   totalStudents: number;
   rating: number;
   createdAt: string;
   updatedAt: string;
-  thumbnail?: string;  // Course thumbnail image URL
-  duration?: string;   // Course duration (e.g., "2 hours")
+  thumbnail: string;
+  duration: string;
   content?: string;    // Course content/curriculum
   requirements?: string[]; // Course requirements
+  objectives?: string[];   // Course objectives
   learningObjectives?: string[];   // Learning objectives
   targetAudience?: string[]; // Target audience
-  lessons?: Lesson[]; // Course lessons
+  lessons: Lesson[];
   modules?: Module[]; // Course modules
+  __v: number;
 }
 
 export interface Lesson {
+  _id: string;
   title: string;
   description: string;
+  videoUrl: string;
   duration: string;
-  videoUrl?: string;
-  order: number;
+  status?: 'processing' | 'failed' | 'completed';
+  transcription?: string;
+  summary?: string;
 }
 
 export interface Module {

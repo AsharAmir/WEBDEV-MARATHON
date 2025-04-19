@@ -9,7 +9,7 @@ import {
   Image,
   Loader2,
 } from "lucide-react";
-import { Course } from "../../types";
+import { Course, Lesson } from "../../types/course";
 import { coursesAPI } from "../../services/api";
 import { uploadMedia } from "../Uploadtosupabase/uploadmedia.js";
 
@@ -39,7 +39,7 @@ const CourseModal: React.FC<CourseModalProps> = ({
     description: course.description,
     price: course.price,
     level: course.level,
-    category: course.category,
+    category: course.categories[0] || "",
     duration: course.duration || "0h 0m",
   });
 
@@ -173,17 +173,16 @@ const CourseModal: React.FC<CourseModalProps> = ({
       // Create a new lesson with the video
       const newLesson = videoUrlToUse
         ? {
-            id: Date.now().toString(),
+            _id: Date.now().toString(),
             title: "Introduction",
             description: "Course introduction video",
             videoUrl: videoUrlToUse,
-            duration: "0:00",
-            courseId: course.id,
-            order: 1,
+            duration: "0",
+            status: "completed" as const,
           }
         : null;
 
-      const newCourse = await coursesAPI.create({
+      const newCourse = (await coursesAPI.create({
         ...formData,
         thumbnail: thumbnailUrl,
         videoUrl: videoUrlToUse,
@@ -196,7 +195,7 @@ const CourseModal: React.FC<CourseModalProps> = ({
         updatedAt: new Date().toISOString(),
         lessons: newLesson ? [newLesson] : [],
         categories: [formData.category],
-      });
+      })) as Course;
 
       onSuccess?.(newCourse);
       onClose();
@@ -237,25 +236,24 @@ const CourseModal: React.FC<CourseModalProps> = ({
       // Create a new lesson with the video if uploaded
       const updatedLessons = [...course.lessons];
       if (videoUrlToUse) {
-        const newLesson = {
-          id: Date.now().toString(),
+        const newLesson: Lesson = {
+          _id: Date.now().toString(),
           title: "New Video",
           description: "New course video",
           videoUrl: videoUrlToUse,
-          duration: "0:00",
-          courseId: course.id,
-          order: updatedLessons.length + 1,
+          duration: "0",
+          status: "completed",
         };
         updatedLessons.push(newLesson);
       }
 
-      const updatedCourse = await coursesAPI.update(course.id, {
+      const updatedCourse = (await coursesAPI.update(course._id, {
         ...formData,
         thumbnail: thumbnailUrl,
         videoUrl: videoUrlToUse || (course as any).videoUrl,
         updatedAt: new Date().toISOString(),
         lessons: updatedLessons,
-      });
+      })) as Course;
 
       onSuccess?.(updatedCourse);
       onClose();
@@ -533,6 +531,82 @@ const CourseModal: React.FC<CourseModalProps> = ({
                   required
                 />
               </div>
+
+              {mode !== "enroll" && (
+                <div className="md:col-span-2 mt-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <label className="block text-lg font-medium text-gray-700">
+                      Course Lessons ({course.lessons?.length || 0})
+                    </label>
+                    {mode === "edit" && (
+                      <button
+                        type="button"
+                        onClick={() => setVideoFile(null)}
+                        className="text-sm text-blue-600 hover:text-blue-700 flex items-center"
+                      >
+                        <Plus className="w-4 h-4 mr-1" />
+                        Add New Lesson
+                      </button>
+                    )}
+                  </div>
+                  <div className="space-y-4 border rounded-lg p-4">
+                    {course.lessons && course.lessons.length > 0 ? (
+                      course.lessons.map((lesson: Lesson, index: number) => (
+                        <div
+                          key={lesson._id}
+                          className="flex items-center justify-between border-b last:border-b-0 pb-4 last:pb-0"
+                        >
+                          <div className="flex-1">
+                            <div className="flex items-center">
+                              <span className="text-gray-500 mr-3">
+                                Lesson {index + 1}
+                              </span>
+                              <h3 className="font-medium text-gray-900">
+                                {lesson.title}
+                              </h3>
+                            </div>
+                            <p className="text-sm text-gray-600 mt-1">
+                              {lesson.description}
+                            </p>
+                            <div className="flex items-center mt-2 space-x-4">
+                              {lesson.videoUrl && (
+                                <span className="text-xs text-green-600 flex items-center">
+                                  <Video className="w-3 h-3 mr-1" />
+                                  Video uploaded
+                                </span>
+                              )}
+                              {lesson.duration && (
+                                <span className="text-xs text-gray-500">
+                                  Duration: {lesson.duration} min
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="ml-4">
+                            {lesson.status === "processing" && (
+                              <span className="text-yellow-600 text-sm flex items-center">
+                                <Loader2 className="animate-spin w-3 h-3 mr-1" />
+                                Processing
+                              </span>
+                            )}
+                            {lesson.status === "failed" && (
+                              <span className="text-red-600 text-sm flex items-center">
+                                <X className="w-3 h-3 mr-1" />
+                                Failed
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-gray-500 text-center py-4">
+                        No lessons added yet. Upload a video to create a new
+                        lesson.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="mt-8 flex justify-end space-x-4">
